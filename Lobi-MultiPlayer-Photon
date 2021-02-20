@@ -1,0 +1,303 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using Photon.Realtime;
+using Photon.Pun;
+using TMPro;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using Steamworks;
+using Photon.Voice.Unity;
+using Photon.Voice.PUN;
+using Hashtable = ExitGames.Client.Photon.Hashtable;
+
+
+public class GameManager : MonoBehaviourPunCallbacks, IConnectionCallbacks, IMatchmakingCallbacks
+{
+    public static GameManager instance;
+    
+    public TMP_InputField roomName;
+    public TMP_InputField sifreGirme;
+    public string sifre;
+    public TMP_Text roomNameText;
+    public TMP_Text sifreGirmeText;
+    public TMP_Text sifreKurmaText;
+
+    public Transform roomListCont;
+    public GameObject roomListPref;
+
+    public Transform playerListCont;
+    public GameObject playerListPref;
+
+    public GameObject button;
+
+    public Button goButton;
+
+    private PhotonVoiceNetwork punVoiceNetwork;
+
+    PhotonView pw;
+    private VoiceConnection voiceConnection;
+    [SerializeField]
+    private bool autoTransmit = true;
+    public int t=0;
+    public Transform[] spawnPoints;
+    public GameObject piemain;
+    GameObject pie;
+    public GameObject volum;
+    void Awake()
+    {
+        instance = this;
+        this.voiceConnection = this.GetComponent<VoiceConnection>();
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+      
+            pw = GetComponent<PhotonView>();
+            PhotonNetwork.ConnectUsingSettings();
+            MenuManager.instance.OpenMenu("ilk");
+
+        volum.SetActive(true);
+    }
+
+    public void Update()
+    {
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None; 
+   
+    }
+
+
+
+    public override void OnConnectedToMaster()
+    {
+        if (!PhotonNetwork.InLobby)
+        {
+            PhotonNetwork.JoinLobby();
+            PhotonNetwork.AutomaticallySyncScene = true;
+            MenuManager.instance.OpenMenu("yükleme");
+
+        }
+     
+    }
+
+    public override void OnJoinedLobby()
+    {
+        if (PhotonNetwork.InLobby)
+        {
+
+             
+                Debug.Log("Basti");
+                MenuManager.instance.OpenMenu("title");
+           
+              
+                
+
+        }
+        else
+        {
+
+            Debug.Log("Bağlantı hatasi");
+        }
+      
+       // PhotonVoiceNetwork
+        Debug.Log("Photon Bağlantısı tamam ve Steam ismini çekti");
+
+        string name = SteamFriends.GetPersonaName();
+        PhotonNetwork.NickName = name;
+        volum.SetActive(true);
+    }
+
+    public override void OnJoinedRoom()
+    {
+        volum.SetActive(false);
+        MenuManager.instance.OpenMenu("room");
+        roomNameText.text = PhotonNetwork.CurrentRoom.Name;
+        
+        Player[] players = PhotonNetwork.PlayerList;
+
+        foreach (Transform child in playerListCont)
+        {
+            Destroy(child.gameObject);
+        }
+
+        for (int i = 0; i < players.Length;)
+        {
+
+          
+
+            //Instantiate(playerListPref, playerListCont).GetComponent<PlayerListitem>().SetUp(players[i]);
+
+            Instantiate(piemain, spawnPoints[t].position, Quaternion.Euler(0, -60, 0)).GetComponent<PlayerListitem>().SetUp(players[i]);
+            i++;
+            t++;
+            if (spawnPoints[t] == null)
+            {
+                Debug.Log("full doldu");
+            }
+        }
+
+
+        PhotonNetwork.Instantiate("ses 1", spawnPoints[1].position, Quaternion.identity);
+        button.SetActive(PhotonNetwork.IsMasterClient);
+        
+        Debug.Log("Spawnladim Create room");
+    }
+
+    public override void OnMasterClientSwitched(Player newMasterClient)
+    {
+        button.SetActive(PhotonNetwork.IsMasterClient);
+    }
+
+    public void JoinRoom(RoomInfo info)
+    {
+
+       
+
+            PhotonNetwork.JoinRoom(info.Name);
+
+            volum.SetActive(false);
+
+     
+
+
+
+
+
+    }
+
+    public void StartGame()
+    {
+        PhotonNetwork.CurrentRoom.IsVisible = false;
+        MenuManager.instance.OpenMenu("yükleme");
+        PhotonNetwork.LoadLevel(1);
+
+
+       
+        Debug.Log(PhotonNetwork.LevelLoadingProgress);
+
+      
+
+
+
+    }
+
+    public void OyunKapa()
+    {
+        Application.Quit();
+    }
+    public void CreateRoom()
+    {
+
+        MenuManager.instance.OpenMenu("yükleme");
+        Debug.Log("Oda kuruldu");
+        if (string.IsNullOrEmpty(roomName.text))
+        {
+            Debug.Log("aynı oda ismiyle oda var");
+
+            return;
+        }
+        
+        RoomOptions roomOptions = new RoomOptions();
+        roomOptions.MaxPlayers = 6;
+        roomOptions.IsVisible = true;
+        roomOptions.IsOpen = true;
+        
+        PhotonNetwork.CreateRoom(roomName.text,roomOptions);
+
+       /* Hashtable RoomCustomProps = new Hashtable();
+        RoomCustomProps.Add("sifreGirmeText", sifreGirmeText);
+        
+        roomOptions.CustomRoomProperties = RoomCustomProps;
+       */
+
+
+
+    }
+
+    void OnLevelWasLoaded(int level)
+    {
+
+        Debug.Log("yükleniyor"+ Application.loadedLevelName);
+        Debug.Log(level);
+    }
+
+    public override void OnRoomListUpdate(List<RoomInfo> roomList)
+    {
+        foreach (Transform trans in  roomListCont)
+        {
+            Destroy(trans.gameObject);
+        }
+
+        for (int i = 0; i < roomList.Count; i++)
+        {
+            if (roomList[i].RemovedFromList)
+            {
+                continue;
+            }
+            Instantiate(roomListPref, roomListCont).GetComponent<roomlistitem>().SetRoom(roomList[i]);
+        }
+
+       
+    }
+
+    public override void OnPlayerEnteredRoom(Player newPlayer)
+    {
+        //Instantiate(playerListPref, playerListCont).GetComponent<PlayerListitem>().SetUp(newPlayer);
+        GameObject pie = Instantiate(piemain, spawnPoints[t].position, Quaternion.Euler(0, -60, 0));
+        pie.GetComponent<PlayerListitem>().SetUp(newPlayer);
+       
+    }
+       
+
+    public void cocuksec()
+    {
+        
+      
+
+    }
+
+  
+
+    public void LeaveRoom()
+    {
+        volum.SetActive(true);
+        PhotonNetwork.LeaveRoom();
+        //MenuManager.instance.OpenMenu("loading");
+        //MenuManager.instance.OpenMenu("title");
+        //Debug.Log("odadan çıktı");
+        
+    }
+    public override void OnLeftLobby()
+    {
+
+        MenuManager.instance.OpenMenu("title");
+        Debug.Log("lobiden çıktı");
+      
+
+    }
+    public override void OnLeftRoom()
+    {
+        MenuManager.instance.OpenMenu("title");
+        /* PhotonNetwork.LeaveRoom();
+         while (PhotonNetwork.IsConnected)
+         {
+               
+         }*/
+
+        Debug.Log("odaodan çıktı");
+        t--;
+
+    }
+
+
+
+    public void MenuBack()
+    {
+        MenuManager.instance.OpenMenu("title");
+    }
+   
+
+    
+  }
