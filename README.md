@@ -1,2 +1,2 @@
 # GameManager
-lobi
+Lobi sistemi
